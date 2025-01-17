@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 
 app.get("/", (req, res) => {
-    res.send("Hello, Dockerized Node.js udaykiran is  a tester in yuma and yulu using java !");
+    res.send("Hello, Dockerized Node.js udaykiran is  a tester in yuma in golang !");
 });
 
 const PORT = process.env.PORT || 3000;
