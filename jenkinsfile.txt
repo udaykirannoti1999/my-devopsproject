@@ -1,0 +1,53 @@
+pipeline {
+    agent any
+    
+    environment {
+        APP_NAME = "MyApp"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: env.BRANCH_NAME, url: 'https://github.com/udaykirannoti1999/my-devopsproject.git'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'dev') {
+                        echo "Building for DEV environment"
+                    } else if (env.BRANCH_NAME == 'preprod') {
+                        echo "Building for PREPROD environment"
+                    } else if (env.BRANCH_NAME == 'prod') {
+                        echo "Building for PROD environment"
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'dev') {
+                        echo "Deploying to DEV server"
+                    } else if (env.BRANCH_NAME == 'preprod') {
+                        echo "Deploying to PREPROD server"
+                    } else if (env.BRANCH_NAME == 'prod') {
+                        echo "Deploying to PROD server"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Build & Deployment successful for ${env.BRANCH_NAME}"
+        }
+        failure {
+            echo "Build failed for ${env.BRANCH_NAME}"
+        }
+    }
+}
+
