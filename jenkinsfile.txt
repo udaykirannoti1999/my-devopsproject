@@ -4,6 +4,7 @@ pipeline {
     environment {
         REGION = 'ap-south-1'  // Replace with your AWS region
         ECR_REPO = '703671913075.dkr.ecr.ap-south-1.amazonaws.com'  // Single ECR repository for all environments
+        AWS_ACCOUNT_ID = '703671913075' // Add your AWS account ID here
     }
 
     stages {
@@ -57,7 +58,5 @@ pipeline {
             }
         }
     }
-
-   
-    }
 }
+
