@@ -2,22 +2,21 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'  // Change to your AWS region
-        AWS_ACCOUNT_ID = '703671913075'  // Change to your AWS Account ID
-        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'  // Change to your GitHub repo
-        ECR_REPO = '703671913075.dkr.ecr.ap-south-1.amazonaws.com'
+        AWS_REGION = 'ap-south-1'
+        AWS_ACCOUNT_ID = '703671913075'
+        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
+        ECR_REPO = ''
+        IMAGE_TAG = ''
     }
 
     stages {
         stage('Checkout') {
             steps {
                 script {
-                    // Clone repository and remove existing directory if present
                     sh "rm -rf workspace || true"
                     sh "git clone ${GIT_REPO} workspace"
 
                     dir('workspace') {
-                        // Get the current branch name
                         BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
                         echo "Current Git Branch: ${BRANCH_NAME}"
                     }
@@ -28,13 +27,12 @@ pipeline {
         stage('Determine ECR Repository') {
             steps {
                 script {
-                    // Assign ECR repository based on branch
                     if (BRANCH_NAME == 'Dev-branch') {
-                        myrepo = "{ECR_REPO}/myapp-dev"
-                    } else if (BRANCH_NAME == 'Prepord') {
-                        prep = "${ECR_REPO}/prod-repo"
+                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-dev"
+                    } else if (BRANCH_NAME == 'Preprod') {
+                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/prod-repo"
                     } else if (BRANCH_NAME == 'main') {
-                        prod = "${ECR_REPO}/prod"
+                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/prod"
                     } else {
                         error "Branch ${BRANCH_NAME} is not configured for deployment."
                     }
@@ -47,9 +45,7 @@ pipeline {
             steps {
                 script {
                     IMAGE_TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
-                    
                     dir('workspace') {
-                        // Build Docker image with dynamic tag
                         sh "docker build -t ${ECR_REPO}:${IMAGE_TAG} ."
                     }
                 }
@@ -59,7 +55,6 @@ pipeline {
         stage('Authenticate with AWS ECR') {
             steps {
                 script {
-                    // Authenticate Docker with AWS ECR
                     sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
                 }
             }
@@ -68,7 +63,7 @@ pipeline {
         stage('Push Image to ECR') {
             steps {
                 script {
-                    // Push the tagged image to ECR
+                    echo "Pushing Docker image: ${ECR_REPO}:${IMAGE_TAG}"
                     sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
                 }
             }
@@ -78,7 +73,7 @@ pipeline {
             steps {
                 script {
                     sh "docker rmi ${ECR_REPO}:${IMAGE_TAG} || true"
-                    sh "rm -rf workspace"  // Cleanup cloned repository
+                    sh "rm -rf workspace"
                 }
             }
         }
