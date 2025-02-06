@@ -5,6 +5,8 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         AWS_ACCOUNT_ID = '703671913075'
         GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
+        ECR_REPO = ''
+        IMAGE_TAG = ''
     }
 
     stages {
@@ -45,6 +47,7 @@ pipeline {
                     env.IMAGE_TAG = "${env.BRANCH_NAME}-${BUILD_NUMBER}"
                     dir('workspace') {
                         sh "docker build -t ${env.ECR_REPO}:${env.IMAGE_TAG} ."
+                        sh "docker tag ${env.ECR_REPO}:${env.IMAGE_TAG} ${env.ECR_REPO}:latest"
                     }
                 }
             }
@@ -63,6 +66,7 @@ pipeline {
                 script {
                     echo "Pushing Docker image: ${env.ECR_REPO}:${env.IMAGE_TAG}"
                     sh "docker push ${env.ECR_REPO}:${env.IMAGE_TAG}"
+                    sh "docker push ${env.ECR_REPO}:latest"
                 }
             }
         }
@@ -71,11 +75,10 @@ pipeline {
             steps {
                 script {
                     sh "docker rmi ${env.ECR_REPO}:${env.IMAGE_TAG} || true"
+                    sh "docker rmi ${env.ECR_REPO}:latest || true"
                     sh "rm -rf workspace"
                 }
             }
         }
     }
 }
-
-
