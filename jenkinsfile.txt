@@ -5,8 +5,6 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         AWS_ACCOUNT_ID = '703671913075'
         GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
-        ECR_REPO = ''
-        IMAGE_TAG = ''
     }
 
     stages {
@@ -17,8 +15,8 @@ pipeline {
                     sh "git clone ${GIT_REPO} workspace"
 
                     dir('workspace') {
-                        BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
-                        echo "Current Git Branch: ${BRANCH_NAME}"
+                        env.BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                        echo "Current Git Branch: ${env.BRANCH_NAME}"
                     }
                 }
             }
@@ -27,16 +25,16 @@ pipeline {
         stage('Determine ECR Repository') {
             steps {
                 script {
-                    if (BRANCH_NAME == 'Dev-branch') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-dev"
-                    } else if (BRANCH_NAME == 'Preprod') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-preprod"
-                    } else if (BRANCH_NAME == 'main') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod"
+                    if (env.BRANCH_NAME == 'Dev-branch') {
+                        env.ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-dev"
+                    } else if (env.BRANCH_NAME == 'Preprod') {
+                        env.ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-preprod"
+                    } else if (env.BRANCH_NAME == 'main') {
+                        env.ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod"
                     } else {
-                        error "Branch ${BRANCH_NAME} is not configured for deployment."
+                        error "Branch ${env.BRANCH_NAME} is not configured for deployment."
                     }
-                    echo "Target ECR Repository: ${ECR_REPO}"
+                    echo "Target ECR Repository: ${env.ECR_REPO}"
                 }
             }
         }
@@ -44,9 +42,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    IMAGE_TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
+                    env.IMAGE_TAG = "${env.BRANCH_NAME}-${BUILD_NUMBER}"
                     dir('workspace') {
-                        sh "docker build -t ${ECR_REPO}:${IMAGE_TAG} ."
+                        sh "docker build -t ${env.ECR_REPO}:${env.IMAGE_TAG} ."
                     }
                 }
             }
@@ -63,8 +61,8 @@ pipeline {
         stage('Push Image to ECR') {
             steps {
                 script {
-                    echo "Pushing Docker image: ${ECR_REPO}:${IMAGE_TAG}"
-                    sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
+                    echo "Pushing Docker image: ${env.ECR_REPO}:${env.IMAGE_TAG}"
+                    sh "docker push ${env.ECR_REPO}:${env.IMAGE_TAG}"
                 }
             }
         }
@@ -72,7 +70,7 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
-                    sh "docker rmi ${ECR_REPO}:${IMAGE_TAG} || true"
+                    sh "docker rmi ${env.ECR_REPO}:${env.IMAGE_TAG} || true"
                     sh "rm -rf workspace"
                 }
             }
