@@ -18,7 +18,11 @@ pipeline {
                     sh "git clone ${GIT_REPO} workspace"
 
                     dir('workspace') {
-                        env.BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                        sh "git status"
+                        env.BRANCH_NAME = sh(script: "git symbolic-ref --short HEAD || git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                        if (!env.BRANCH_NAME?.trim()) {
+                            error "Failed to determine branch name!"
+                        }
                         echo "Current Git Branch: ${env.BRANCH_NAME}"
                     }
                 }
