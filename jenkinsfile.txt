@@ -4,30 +4,30 @@ pipeline {
     environment {
         REGION = 'ap-south-1'  // Replace with your AWS region
         ECR_REPO = '703671913075.dkr.ecr.ap-south-1.amazonaws.com'  // Single ECR repository for all environments
-        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'  // Replace with your repository URL
-        AWS_ACCOUNT_ID = '703671913075'  // Replace with your AWS Account ID
     }
 
     stages {
-        stage('Clone Repository') {
+        stage('Checkout') {
             steps {
-                sh 'git clone -b ${env.BRANCH_NAME} $GIT_REPO source_code'
+                checkout scm
             }
         }
 
         stage('Login to AWS ECR') {
             steps {
-                sh '''
-                aws ecr get-login-password --region $REGION | \
-                docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
-                '''
+                script {
+                    sh '''
+                    aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+                    '''
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'cd source_code && docker build -t myapp:${env.BRANCH_NAME} .'
+                    // Build Docker image
+                    sh 'docker build -t myapp:${env.BRANCH_NAME} .'
                 }
             }
         }
@@ -35,8 +35,20 @@ pipeline {
         stage('Push Docker Image to ECR') {
             steps {
                 script {
-                    def tag = env.BRANCH_NAME
+                    def tag = ''
                     
+                    // Set the tag based on the branch name
+                    if (env.BRANCH_NAME == 'dev') {
+                        tag = 'dev'
+                    } else if (env.BRANCH_NAME == 'preprod') {
+                        tag = 'preprod'
+                    } else if (env.BRANCH_NAME == 'prod') {
+                        tag = 'prod'
+                    } else {
+                        error "Unknown branch: ${env.BRANCH_NAME}. Cannot push Docker image."
+                    }
+                    
+                    // Tag and push the Docker image to the ECR repository with the appropriate tag
                     sh """
                     docker tag myapp:${env.BRANCH_NAME} $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag
                     docker push $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag
@@ -48,15 +60,8 @@ pipeline {
 
     post {
         always {
-            script {
-                sh '''
-                if docker images -q myapp:${env.BRANCH_NAME} > /dev/null; then
-                    docker rmi myapp:${env.BRANCH_NAME}
-                else
-                    echo "Image myapp:${env.BRANCH_NAME} does not exist, skipping removal."
-                fi
-                '''
-            }
+            // Clean up Docker images
+            sh 'docker rmi myapp:${env.BRANCH_NAME}'
         }
     }
 }
