@@ -5,8 +5,9 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         AWS_ACCOUNT_ID = '703671913075'
         GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
-        ECR_REPO = ''
+        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod"
         IMAGE_TAG = ''
+        BRANCH_NAME = 'main'
     }
 
     stages {
@@ -17,26 +18,8 @@ pipeline {
                     sh "git clone ${GIT_REPO} workspace"
 
                     dir('workspace') {
-                        BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
                         echo "Current Git Branch: ${BRANCH_NAME}"
                     }
-                }
-            }
-        }
-
-        stage('Determine ECR Repository') {
-            steps {
-                script {
-                    if (BRANCH_NAME == 'Dev-branch') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-dev"
-                    } else if (BRANCH_NAME == 'Preprod') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/prod-repo"
-                    } else if (BRANCH_NAME == 'main') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod"
-                    } else {
-                        error "Branch ${BRANCH_NAME} is not configured for deployment."
-                    }
-                    echo "Target ECR Repository: ${ECR_REPO}"
                 }
             }
         }
