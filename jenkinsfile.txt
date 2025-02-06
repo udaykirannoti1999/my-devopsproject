@@ -5,6 +5,8 @@ pipeline {
         REGION = 'ap-south-1'  // Replace with your AWS region
         ECR_REPO = '703671913075.dkr.ecr.ap-south-1.amazonaws.com'  // Single ECR repository for all environments
         AWS_ACCOUNT_ID = '703671913075' // Add your AWS account ID here
+        AWS_ACCESS_KEY_ID = credentials('AKIA2HVQ5JJZTD5ECLE5')  // Use credentials for AWS access
+        AWS_SECRET_ACCESS_KEY = credentials('Z/yQwUw69J7S2HtOjqI/ZDXJHgw87qH0FLZC0UF3') // Use credentials for AWS secret
     }
 
     stages {
@@ -17,9 +19,20 @@ pipeline {
         stage('Login to AWS ECR') {
             steps {
                 script {
+                    // Check if AWS credentials are set
+                    echo "AWS_ACCESS_KEY_ID: ${env.AWS_ACCESS_KEY_ID}"
+                    echo "AWS_SECRET_ACCESS_KEY: ${env.AWS_SECRET_ACCESS_KEY}"
+
+                    // AWS login to ECR with more verbose output
                     sh '''
+                    echo "Logging into AWS ECR..."
                     set -x  # Enable debug output for the shell commands
+                    aws --version  # Check AWS CLI version to ensure it's installed
                     aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+                    if [ $? -ne 0 ]; then
+                        echo "AWS ECR login failed"
+                        exit 1
+                    fi
                     '''
                 }
             }
@@ -28,9 +41,13 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build Docker image
-                    sh 'docker build -t myapp:${env.BRANCH_NAME} .'
-                    sh 'docker images'  // List images to verify build
+                    // Build Docker image and capture detailed output
+                    sh '''
+                    echo "Building Docker image..."
+                    docker --version  # Check Docker version to ensure it's installed
+                    docker build -t myapp:${env.BRANCH_NAME} . || exit 1
+                    docker images || exit 1  # List images to verify the build
+                    '''
                 }
             }
         }
@@ -50,11 +67,12 @@ pipeline {
                     } else {
                         error "Unknown branch: ${env.BRANCH_NAME}. Cannot push Docker image."
                     }
-                    
+
                     // Tag and push the Docker image to the ECR repository with the appropriate tag
                     sh """
-                    docker tag myapp:${env.BRANCH_NAME} $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag
-                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag
+                    echo "Tagging and pushing Docker image..."
+                    docker tag myapp:${env.BRANCH_NAME} $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag || exit 1
+                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag || exit 1
                     """
                 }
             }
