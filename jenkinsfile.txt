@@ -32,7 +32,7 @@ pipeline {
                     } else if (BRANCH_NAME == 'Preprod') {
                         ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/prod-repo"
                     } else if (BRANCH_NAME == 'main') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/prod"
+                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod"
                     } else {
                         error "Branch ${BRANCH_NAME} is not configured for deployment."
                     }
