@@ -41,6 +41,17 @@ pipeline {
             }
         }
 
+        stage('Ensure ECR Repository Exists') {
+            steps {
+                script {
+                    sh """
+                    aws ecr describe-repositories --repository-names $(basename ${env.ECR_REPO}) --region ${AWS_REGION} || \
+                    aws ecr create-repository --repository-name $(basename ${env.ECR_REPO}) --region ${AWS_REGION}
+                    """
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
@@ -56,7 +67,7 @@ pipeline {
         stage('Authenticate with AWS ECR') {
             steps {
                 script {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${env.ECR_REPO}"
                 }
             }
         }
