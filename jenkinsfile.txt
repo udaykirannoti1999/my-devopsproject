@@ -5,8 +5,6 @@ pipeline {
         REGION = 'ap-south-1'  // Replace with your AWS region
         ECR_REPO = '703671913075.dkr.ecr.ap-south-1.amazonaws.com'  // Single ECR repository for all environments
         AWS_ACCOUNT_ID = '703671913075' // Add your AWS account ID here
-        AWS_ACCESS_KEY_ID = credentials('AKIA2HVQ5JJZTD5ECLE5')  // Use credentials for AWS access
-        AWS_SECRET_ACCESS_KEY = credentials('Z/yQwUw69J7S2HtOjqI/ZDXJHgw87qH0FLZC0UF3') // Use credentials for AWS secret
     }
 
     stages {
