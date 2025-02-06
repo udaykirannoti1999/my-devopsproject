@@ -61,7 +61,7 @@ pipeline {
     post {
         always {
             // Clean up Docker images
-            sh 'docker rmi myapp:${env.BRANCH_NAME}'
+             sh 'docker images -q myapp:${env.BRANCH_NAME} && docker rmi myapp:${env.BRANCH_NAME} || echo "Image does not exist, skipping removal"'
         }
     }
 }
