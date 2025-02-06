@@ -44,9 +44,10 @@ pipeline {
         stage('Ensure ECR Repository Exists') {
             steps {
                 script {
+                    def repoName = env.ECR_REPO.tokenize('/')[-1] // Extract repository name from ECR URL
                     sh """
-                    aws ecr describe-repositories --repository-names $(basename ${env.ECR_REPO}) --region ${AWS_REGION} || \
-                    aws ecr create-repository --repository-name $(basename ${env.ECR_REPO}) --region ${AWS_REGION}
+                    aws ecr describe-repositories --repository-names ${repoName} --region ${AWS_REGION} || \
+                    aws ecr create-repository --repository-name ${repoName} --region ${AWS_REGION}
                     """
                 }
             }
