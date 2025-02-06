@@ -2,85 +2,54 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'  // Change to your AWS region
-        AWS_ACCOUNT_ID = '703671913075'  // Change to your AWS Account ID
-        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'  // Change to your GitHub repo
+        REGION = 'ap-south-1'  // Replace with your AWS region
+        ECR_REPO = '703671913075.dkr.ecr.ap-south-1.amazonaws.com'  // Single ECR repository for all environments
+        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'  // Replace with your repository URL
+        AWS_ACCOUNT_ID = '703671913075'  // Replace with your AWS Account ID
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clone Repository') {
             steps {
-                script {
-                    // Remove existing workspace
-                      sh "rm -rf workspace || true"
-            
-                 // Clone the repository and checkout the correct branch
-                    sh """
-                       git clone -b ${env.BRANCH_NAME} --single-branch ${GIT_REPO} workspace
-                       cd workspace
-                       git branch  # Verify branch
-                      """
-                    }
-                }
+                sh 'git clone -b ${env.BRANCH_NAME} $GIT_REPO source_code'
             }
         }
 
-        stage('Determine ECR Repository') {
+        stage('Login to AWS ECR') {
             steps {
-                script {
-                    // Assign ECR repository based on branch
-                    if (BRANCH_NAME == 'Dev-branch') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-dev"
-                    } else if (BRANCH_NAME == 'Prepord') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-preprod"
-                    } else if (BRANCH_NAME == 'main') {
-                        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod"
-                    } else {
-                        error "Branch ${BRANCH_NAME} is not configured for deployment."
-                    }
-                    echo "Target ECR Repository: ${ECR_REPO}"
-                }
+                sh '''
+                aws ecr get-login-password --region $REGION | \
+                docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+                '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    IMAGE_TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
+                    sh 'cd source_code && docker build -t myapp:${env.BRANCH_NAME} .'
+                }
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                script {
+                    def tag = env.BRANCH_NAME
                     
-                    dir('workspace') {
-                        // Build Docker image with dynamic tag
-                        sh "docker build -t ${ECR_REPO}:${IMAGE_TAG} ."
-                    }
-                }
-            }
-        }
-
-        stage('Authenticate with AWS ECR') {
-            steps {
-                script {
-                    // Authenticate Docker with AWS ECR
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                }
-            }
-        }
-
-        stage('Push Image to ECR') {
-            steps {
-                script {
-                    // Push the tagged image to ECR
-                    sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Cleanup') {
-            steps {
-                script {
-                    sh "docker rmi ${ECR_REPO}:${IMAGE_TAG} || true"
-                    sh "rm -rf workspace"  // Cleanup cloned repository
+                    sh """
+                    docker tag myapp:${env.BRANCH_NAME} $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag
+                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO:$tag
+                    """
                 }
             }
         }
     }
+
+    post {
+        always {
+            sh 'docker rmi myapp:${env.BRANCH_NAME}'
+        }
+    }
 }
+
