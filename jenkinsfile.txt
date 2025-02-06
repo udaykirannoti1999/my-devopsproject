@@ -14,15 +14,24 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
+                    // Remove existing workspace
                     sh "rm -rf workspace || true"
+                    
+                    // Clone the repository into workspace
                     sh "git clone ${GIT_REPO} workspace"
 
                     dir('workspace') {
-                        sh "git status"
+                        // Fetch all branches to ensure we have all refs
+                        sh "git fetch --all"
+                        
+                        // Get the current branch name
                         env.BRANCH_NAME = sh(script: "git symbolic-ref --short HEAD || git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+
+                        // Check if the branch name was determined successfully
                         if (!env.BRANCH_NAME?.trim()) {
                             error "Failed to determine branch name!"
                         }
+                        
                         echo "Current Git Branch: ${env.BRANCH_NAME}"
                     }
                 }
@@ -32,6 +41,7 @@ pipeline {
         stage('Determine ECR Repository') {
             steps {
                 script {
+                    // Determine the ECR repository based on the branch name
                     if (env.BRANCH_NAME == 'Dev-branch') {
                         env.ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-dev"
                     } else if (env.BRANCH_NAME == 'Preprod') {
@@ -49,10 +59,12 @@ pipeline {
         stage('Ensure ECR Repository Exists') {
             steps {
                 script {
+                    // Check if the ECR repository is set correctly
                     if (!env.ECR_REPO?.trim()) {
                         error "ECR_REPO is not set! Ensure the Determine ECR Repository stage runs correctly."
                     }
                     def repoName = env.ECR_REPO.split('/')[-1] // Extract repository name from ECR URL
+                    // Ensure the ECR repository exists
                     sh """
                     aws ecr describe-repositories --repository-names ${repoName} --region ${AWS_REGION} || \
                     aws ecr create-repository --repository-name ${repoName} --region ${AWS_REGION}
@@ -64,9 +76,12 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
+                    // Set the image tag based on the branch name and build number
                     env.IMAGE_TAG = "${env.BRANCH_NAME}-${BUILD_NUMBER}"
                     dir('workspace') {
+                        // Build the Docker image
                         sh "docker build -t ${env.ECR_REPO}:${env.IMAGE_TAG} ."
+                        // Tag the image as latest
                         sh "docker tag ${env.ECR_REPO}:${env.IMAGE_TAG} ${env.ECR_REPO}:latest"
                     }
                 }
@@ -76,6 +91,7 @@ pipeline {
         stage('Authenticate with AWS ECR') {
             steps {
                 script {
+                    // Login to AWS ECR
                     sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${env.ECR_REPO}"
                 }
             }
@@ -84,6 +100,7 @@ pipeline {
         stage('Push Image to ECR') {
             steps {
                 script {
+                    // Push the Docker image to ECR
                     echo "Pushing Docker image: ${env.ECR_REPO}:${env.IMAGE_TAG}"
                     sh "docker push ${env.ECR_REPO}:${env.IMAGE_TAG}"
                     sh "docker push ${env.ECR_REPO}:latest"
@@ -94,6 +111,7 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
+                    // Remove the built images and the workspace
                     sh "docker rmi ${env.ECR_REPO}:${env.IMAGE_TAG} || true"
                     sh "docker rmi ${env.ECR_REPO}:latest || true"
                     sh "rm -rf workspace"
