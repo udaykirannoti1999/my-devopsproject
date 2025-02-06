@@ -11,14 +11,15 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Clone repository and remove existing directory if present
-                    sh "rm -rf workspace || true"
-                    sh "git clone ${GIT_REPO} workspace"
-
-                    dir('workspace') {
-                        // Get the current branch name
-                        BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
-                        echo "Current Git Branch: ${BRANCH_NAME}"
+                    // Remove existing workspace
+                      sh "rm -rf workspace || true"
+            
+                 // Clone the repository and checkout the correct branch
+                    sh """
+                       git clone -b ${env.BRANCH_NAME} --single-branch ${GIT_REPO} workspace
+                       cd workspace
+                       git branch  # Verify branch
+                      """
                     }
                 }
             }
