@@ -5,7 +5,7 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         AWS_ACCOUNT_ID = '703671913075'
         GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
-        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/prod-repo"
+        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-preprod"
         IMAGE_TAG = ''
         BRANCH_NAME = 'Preprod'
     }
