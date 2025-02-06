@@ -48,8 +48,15 @@ pipeline {
 
     post {
         always {
-            sh 'docker rmi myapp:${env.BRANCH_NAME}'
+            script {
+                sh '''
+                if docker images -q myapp:${env.BRANCH_NAME} > /dev/null; then
+                    docker rmi myapp:${env.BRANCH_NAME}
+                else
+                    echo "Image myapp:${env.BRANCH_NAME} does not exist, skipping removal."
+                fi
+                '''
+            }
         }
     }
 }
-
