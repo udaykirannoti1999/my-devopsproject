@@ -23,7 +23,7 @@ pipeline {
 
                     if (branchName == 'Dev-branch') {
                         tag = 'dev'
-                    } else if (branchName == 'Preprod') {
+                    } else if (branchName == 'Prepord') {
                         tag = 'preprod'
                     } else if (branchName == 'main') {
                         tag = 'latest'
