@@ -25,7 +25,7 @@ pipeline {
                     } else if (branchName == 'Prepord') {
                         tag = 'preprod'
                     } else if (branchName == 'main') {
-                        tag = 'latest'
+                        tag = 'prod'
                     } else {
                         error "Unsupported branch: ${branchName}"
                     }
