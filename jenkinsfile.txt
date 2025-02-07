@@ -2,24 +2,24 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'
-        AWS_ACCOUNT_ID = '703671913075'
-        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
-        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-preprod"
-        IMAGE_TAG = ''
-        BRANCH_NAME = 'Preprod'
+        REGION = 'ap-south-1'  // Replace with your AWS region
+        AWS_ACCOUNT_ID = '703671913075'  // Replace with your AWS Account ID
+        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/myapp-prod"  // Single ECR repo
     }
 
     stages {
         stage('Checkout') {
             steps {
                 script {
-                    sh "rm -rf workspace || true"
-                    sh "git clone --depth 1 ${GIT_REPO} workspace"
+                    echo "Checking out branch: ${env.BRANCH_NAME}"
+                }
+            }
+        }
 
-                    dir('workspace') {
-                        echo "Current Git Branch: ${BRANCH_NAME}"
-                    }
+        stage('Login to AWS ECR') {
+            steps {
+                script {
+                    sh "aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
                 }
             }
         }
@@ -27,42 +27,29 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    IMAGE_TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
-                    CUSTOM_TAG = "prep"
-                    dir('workspace') {
-                       sh """
-                         docker build -t ${ECR_REPO}:${IMAGE_TAG} .
-                         docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REPO}:${CUSTOM_TAG}
-                      """
-                    }
+                    sh "docker build -t myapp:${env.BRANCH_NAME} ."
                 }
             }
         }
 
-        stage('Authenticate with AWS ECR') {
+        stage('Push Docker Image to ECR') {
             steps {
                 script {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                }
-            }
-        }
+                    def tag = env.BRANCH_NAME in ['dev', 'preprod', 'prod'] ? env.BRANCH_NAME : error "Unknown branch: ${env.BRANCH_NAME}. Cannot push Docker image."
 
-        stage('Push Image to ECR') {
-            steps {
-                script {
-                    echo "Pushing Docker image: ${ECR_REPO}:${IMAGE_TAG}"
-                    sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Cleanup') {
-            steps {
-                script {
-                    sh "docker rmi ${ECR_REPO}:${IMAGE_TAG} || true"
-                    sh "rm -rf workspace"
+                    sh """
+                    docker tag myapp:${env.BRANCH_NAME} $ECR_REPO:$tag
+                    docker push $ECR_REPO:$tag
+                    """
                 }
             }
         }
     }
+
+    post {
+        always {
+            sh "docker rmi myapp:${env.BRANCH_NAME} || true"
+        }
+    }
 }
+
