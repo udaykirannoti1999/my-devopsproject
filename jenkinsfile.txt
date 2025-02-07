@@ -2,66 +2,88 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'
-        AWS_ACCOUNT_ID = '703671913075'
-        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
-        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-dev"
-        IMAGE_TAG = ''
-        BRANCH_NAME = 'Dev-branch'
+        AWS_REGION = 'ap-south-1'  // Change as needed
+        AWS_ACCOUNT_ID = '703671913075'  // Replace with your AWS account ID
+        ECR_REPOSITORY = "myapp-prod" // Only the repository name, not the full URL
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Set Image Tag') {
             steps {
                 script {
-                    sh "rm -rf workspace || true"
-                    sh "git clone --depth 1 ${GIT_REPO} workspace"
+                    def branchName = env.BRANCH_NAME
+                    def tag = ''
 
-                    dir('workspace') {
-                        echo "Current Git Branch: ${BRANCH_NAME}"
+                    if (branchName == 'Dev-branch') {
+                        tag = 'dev'
+                    } else if (branchName == 'Prepord') {
+                        tag = 'preprod'
+                    } else if (branchName == 'main') {
+                        tag = 'latest'
+                    } else {
+                        error "Unsupported branch: ${branchName}"
                     }
+
+                    env.IMAGE_TAG = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${tag}"
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
+                sh '''
+                    echo "Building Docker image..."
+                    docker build -t $IMAGE_TAG .
+                '''
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
                 script {
-                    IMAGE_TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
-                    CUSTOM_TAG = "Dev" 
-                    dir('workspace') {
-                       sh """
-                    docker build -t ${ECR_REPO}:${IMAGE_TAG} .
-                    docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REPO}:${CUSTOM_TAG}
-                """
+                    sh '''
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    '''
+                }
+            }
+        }
+
+        stage('Check ECR Repository') {
+            steps {
+                script {
+                    def repoExists = sh(
+                        script: "aws ecr describe-repositories --repository-names $ECR_REPOSITORY --region $AWS_REGION",
+                        returnStatus: true
+                    )
+
+                    if (repoExists != 0) {
+                        error "ECR repository $ECR_REPOSITORY does not exist. Please create it first."
                     }
                 }
             }
         }
 
-        stage('Authenticate with AWS ECR') {
+        stage('Push to ECR') {
             steps {
-                script {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                }
-            }
-        }
-
-        stage('Push Image to ECR') {
-            steps {
-                script {
-                    echo "Pushing Docker image: ${ECR_REPO}:${IMAGE_TAG}"
-                    sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
-                }
+                sh '''
+                    echo "Pushing Docker image to ECR..."
+                    docker push $IMAGE_TAG
+                '''
             }
         }
 
         stage('Cleanup') {
             steps {
-                script {
-                    sh "docker rmi ${ECR_REPO}:${IMAGE_TAG} || true"
-                    sh "rm -rf workspace"
-                }
+                sh '''
+                    echo "Removing local Docker images..."
+                    docker rmi $IMAGE_TAG || true
+                '''
             }
         }
     }
