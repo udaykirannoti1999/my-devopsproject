@@ -33,7 +33,7 @@ pipeline {
                     }
                     
                     ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ecrMap[BRANCH_NAME]}"
-                    IMAGE_TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
+                    IMAGE_TAG = "${ecrMap[BRANCH_NAME]}-${BUILD_NUMBER}"
                     
                     echo "Target ECR Repository: ${ECR_REPO}"
                 }
