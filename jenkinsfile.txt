@@ -4,8 +4,7 @@ pipeline {
     environment {
         AWS_REGION = 'ap-south-1'  // Change as needed
         AWS_ACCOUNT_ID = '703671913075'  // Replace with your AWS account ID
-        ECR_REPOSITORY = "703671913075.dkr.ecr.ap-south-1.amazonaws.com/myapp-prod" // Replace with your actual ECR repo name
-        
+        ECR_REPOSITORY = "myapp-prod" // Only the repository name, not the full URL
     }
 
     stages {
@@ -51,6 +50,21 @@ pipeline {
                     sh '''
                         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
                     '''
+                }
+            }
+        }
+
+        stage('Check ECR Repository') {
+            steps {
+                script {
+                    def repoExists = sh(
+                        script: "aws ecr describe-repositories --repository-names $ECR_REPOSITORY --region $AWS_REGION",
+                        returnStatus: true
+                    )
+
+                    if (repoExists != 0) {
+                        error "ECR repository $ECR_REPOSITORY does not exist. Please create it first."
+                    }
                 }
             }
         }
