@@ -21,11 +21,11 @@ pipeline {
                     def branchName = env.BRANCH_NAME
                     def tag = ''
 
-                    if (branchName == 'dev') {
+                    if (branchName == 'Dev-branch') {
                         tag = 'dev'
-                    } else if (branchName == 'preprod') {
+                    } else if (branchName == 'Preprod') {
                         tag = 'preprod'
-                    } else if (branchName == 'prod') {
+                    } else if (branchName == 'main') {
                         tag = 'latest'
                     } else {
                         error "Unsupported branch: ${branchName}"
