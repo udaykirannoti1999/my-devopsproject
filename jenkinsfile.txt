@@ -15,7 +15,7 @@ pipeline {
             steps {
                 script {
                     sh "rm -rf workspace || true"
-                    sh "git clone ${GIT_REPO} workspace"
+                    sh "git clone --depth 1 ${GIT_REPO} workspace"
 
                     dir('workspace') {
                         echo "Current Git Branch: ${BRANCH_NAME}"
