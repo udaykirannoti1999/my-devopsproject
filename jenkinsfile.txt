@@ -28,8 +28,12 @@ pipeline {
             steps {
                 script {
                     IMAGE_TAG = "${BRANCH_NAME}-${BUILD_NUMBER}"
+                    CUSTOM_TAG = "prep"
                     dir('workspace') {
-                        sh "docker build -t ${ECR_REPO}:${IMAGE_TAG} ."
+                       sh """
+                         docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+                         docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REPO}:${CUSTOM_TAG}
+                      """
                     }
                 }
             }
