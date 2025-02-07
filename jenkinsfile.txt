@@ -4,7 +4,7 @@ pipeline {
     environment {
         AWS_REGION = 'ap-south-1'  // Change as needed
         AWS_ACCOUNT_ID = '703671913075'  // Replace with your AWS account ID
-        ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod" // Replace with your actual ECR repo name
+        ECR_REPOSITORY = "703671913075.dkr.ecr.ap-south-1.amazonaws.com/myapp-prod" // Replace with your actual ECR repo name
         
     }
 
