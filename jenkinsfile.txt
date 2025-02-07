@@ -2,83 +2,74 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'
-        AWS_ACCOUNT_ID = '703671913075'
-        GIT_REPO = 'https://github.com/udaykirannoti1999/my-devopsproject.git'
+        AWS_REGION = 'ap-south-1'  // Change as needed
+        AWS_ACCOUNT_ID = '703671913075'  // Replace with your AWS account ID
+        ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/myapp-prod" // Replace with your actual ECR repo name
+        
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                script {
-                    cleanWs() // Cleans up the workspace before starting
-                    sh "git clone ${GIT_REPO} ."
-                    BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
-                    echo "Detected Branch Name: ${BRANCH_NAME}"
-                }
+                checkout scm
             }
         }
 
-        stage('Determine ECR Repository') {
+        stage('Set Image Tag') {
             steps {
                 script {
-                    def ecrMap = [
-                        'Dev-branch': 'myapp-dev',
-                        'Preprod': 'myapp-preprod',
-                        'main': 'myapp-prod'
-                    ]
-                    
-                    if (!ecrMap.containsKey(BRANCH_NAME)) {
-                        error "Branch ${BRANCH_NAME} is not configured for deployment."
+                    def branchName = env.BRANCH_NAME
+                    def tag = ''
+
+                    if (branchName == 'dev') {
+                        tag = 'dev'
+                    } else if (branchName == 'preprod') {
+                        tag = 'preprod'
+                    } else if (branchName == 'prod') {
+                        tag = 'latest'
+                    } else {
+                        error "Unsupported branch: ${branchName}"
                     }
-                    
-                    ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ecrMap[BRANCH_NAME]}"
-                    IMAGE_TAG = "${ecrMap[BRANCH_NAME]}-${BUILD_NUMBER}"
-                    
-                    echo "Mapped ECR Repository: ${ECR_REPO}"
-                    echo "Generated Image Tag: ${IMAGE_TAG}"
+
+                    env.IMAGE_TAG = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${tag}"
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
+                sh '''
+                    echo "Building Docker image..."
+                    docker build -t $IMAGE_TAG .
+                '''
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
                 script {
-                    sh "docker build -t ${ECR_REPO}:${IMAGE_TAG} ."
+                    sh '''
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    '''
                 }
             }
         }
 
-        stage('Authenticate with AWS ECR') {
+        stage('Push to ECR') {
             steps {
-                script {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                }
-            }
-        }
-
-        stage('Push Image to ECR') {
-            steps {
-                script {
-                    sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Verify Image in ECR') {
-            steps {
-                script {
-                    sh "aws ecr describe-images --repository-name ${ecrMap[BRANCH_NAME]} --region ${AWS_REGION} --image-ids imageTag=${IMAGE_TAG} || echo 'Image verification failed'"
-                }
+                sh '''
+                    echo "Pushing Docker image to ECR..."
+                    docker push $IMAGE_TAG
+                '''
             }
         }
 
         stage('Cleanup') {
             steps {
-                script {
-                    sh "docker rmi ${ECR_REPO}:${IMAGE_TAG} || true"
-                    cleanWs() // Ensures complete cleanup of workspace
-                }
+                sh '''
+                    echo "Removing local Docker images..."
+                    docker rmi $IMAGE_TAG || true
+                '''
             }
         }
     }
