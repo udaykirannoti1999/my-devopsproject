@@ -14,7 +14,7 @@ pipeline {
                     cleanWs() // Cleans up the workspace before starting
                     sh "git clone ${GIT_REPO} ."
                     BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
-                    echo "Current Git Branch: ${BRANCH_NAME}"
+                    echo "Detected Branch Name: ${BRANCH_NAME}"
                 }
             }
         }
@@ -35,7 +35,8 @@ pipeline {
                     ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ecrMap[BRANCH_NAME]}"
                     IMAGE_TAG = "${ecrMap[BRANCH_NAME]}-${BUILD_NUMBER}"
                     
-                    echo "Target ECR Repository: ${ECR_REPO}"
+                    echo "Mapped ECR Repository: ${ECR_REPO}"
+                    echo "Generated Image Tag: ${IMAGE_TAG}"
                 }
             }
         }
@@ -60,6 +61,14 @@ pipeline {
             steps {
                 script {
                     sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Verify Image in ECR') {
+            steps {
+                script {
+                    sh "aws ecr describe-images --repository-name ${ecrMap[BRANCH_NAME]} --region ${AWS_REGION} --image-ids imageTag=${IMAGE_TAG} || echo 'Image verification failed'"
                 }
             }
         }
